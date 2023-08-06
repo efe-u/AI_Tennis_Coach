@@ -56,19 +56,19 @@ def configure():
     return detector
 
 
-def pre_normalize(VIDEO):
+def pre_normalize(VIDEO, ref):
     stable_references = [{}, {}]
     stable_coordinates = [[], []]
 
-    step = int(len(VIDEO.Captures)*0.1)
+    step = int(len(ref.Captures)*0.1)
 
-    # for every approx. 10% of all images
-    for aggregate in tqdm(range(0, len(VIDEO.Captures) - (len(VIDEO.Captures) % 10), step)):
+    # for every approx. 10% period of the shorter video
+    for aggregate in tqdm(range(0, len(VIDEO.Captures) - (len(VIDEO.Captures) % step), step)):
         average_references = [[], []]
         average_coordinates = np.array([[0.0,0.0,0.0], [0.0,0.0,0.0]])
 
-        # for every image in the approx. 10%
-        for capture in range(aggregate, aggregate + int(len(VIDEO.Captures)*0.1)):
+        # for every image in the approx. 10% of the shorter video
+        for capture in range(aggregate, aggregate + step):
 
             u = VIDEO.Captures[capture] # Reference to the frame at the current time
 
@@ -97,13 +97,13 @@ def video_annotate(detector, VIDEO, ref, color):
     VIDEO.set_normalization_factors(ref)
 
     for capture in tqdm(VIDEO.Captures):
-        detection_result = capture.get_normalized_PoseLandmarkerResult()
+        detection_result = capture.get_normalized_PoseLandmarkerResult(ref)
 
         annotated_image, extraction_image = draw_landmarks_on_image(capture.frame, detection_result, color)
         annotated_image = cv.cvtColor(annotated_image, cv.COLOR_RGB2BGR)
 
-        cv.imwrite(f"images/{capture.time}.jpeg", annotated_image)
-        cv.imwrite(f"extractions/{capture.time}.jpeg", extraction_image)
+        cv.imwrite(f"images/{capture.time}.jpeg", cv.resize(annotated_image, (1280, 960), interpolation=cv.INTER_AREA))
+        cv.imwrite(f"extractions/{capture.time}.jpeg", cv.resize(extraction_image, (1280, 960), interpolation=cv.INTER_AREA))
 
 
 def video_make(VIDEO):
@@ -134,8 +134,8 @@ def video_convert(VIDEO):
         video = VideoFileClip(VIDEO.name + f"_{folder}.avi")
 
         # Adjust video speed
-        video = video.set_fps(video.fps * VIDEO.fps)
-        video = video.fx(vfx.speedx, VIDEO.fps)
+        video = video.set_fps(video.fps * 30)
+        video = video.fx(vfx.speedx, 30)
 
         # Save video
         video.write_videofile(f"results/{VIDEO.name}({folder}).mp4")
