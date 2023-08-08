@@ -86,8 +86,10 @@ def set_average_length(objects):
     for obj in objects:
         obj.reference_lengths = [list(obj.reference_length_candidates[0].keys())[ind],
                                  list(obj.reference_length_candidates[1].keys())[ind]]
-        obj.reference_positions = [obj.position_candidates[0][ind],
-                                   obj.position_candidates[1][ind]]
+
+        # reference-point = 27
+        obj.reference_positions = [obj.position_candidates[0][ind][27],
+                                   obj.position_candidates[1][ind][27]]
 
 
 def find_min(objects):
