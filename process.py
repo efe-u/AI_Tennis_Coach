@@ -39,8 +39,6 @@ class Video:
     def process(self, detector):
         counter = 0
         for capture in tqdm(self.Captures):
-            if counter == 125:
-                pass
             image = mp.Image(image_format=mp.ImageFormat.SRGB, data=capture.frame)
             capture.detection_result = detector.detect(image)
 
@@ -60,12 +58,11 @@ class Video:
             normalized_normalization_factor = ref.reference_lengths[0] / self.reference_lengths[0]
             world_normalization_factor = ref.reference_lengths[1] / self.reference_lengths[1]
 
+            self.normalization_factors = [normalized_normalization_factor, world_normalization_factor]
             # Set translation factors
             # TODO
-            self.translation_factor.append(self.reference_positions[0] - ref.reference_positions[0])
-            self.translation_factor.append(self.reference_positions[1] - ref.reference_positions[1])
-
-            self.normalization_factors = [normalized_normalization_factor, world_normalization_factor]
+            self.translation_factor.append(self.reference_positions[0]*self.normalization_factors[0] - ref.reference_positions[0])
+            self.translation_factor.append(self.reference_positions[1]*self.normalization_factors[0] - ref.reference_positions[1])
         else:
             self.normalization_factors = [1, 1]
             self.translation_factor = [[0, 0, 0], [0, 0, 0]]
