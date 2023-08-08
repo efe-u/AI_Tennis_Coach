@@ -65,7 +65,7 @@ def pre_normalize(VIDEO, ref):
     # for every approx. 10% period of the shorter video
     for aggregate in tqdm(range(0, len(VIDEO.Captures) - (len(VIDEO.Captures) % step), step)):
         average_references = [[], []]
-        average_coordinates = np.array([[0.0,0.0,0.0], [0.0,0.0,0.0]])
+        average_coordinates = np.zeros((2,33,3))
 
         # for every image in the approx. 10% of the shorter video
         for capture in range(aggregate, aggregate + step):
@@ -76,12 +76,12 @@ def pre_normalize(VIDEO, ref):
             average_references[0].append(u.set_reference_lengths()[0])
             average_references[1].append(u.set_reference_lengths()[1])
 
-            # Translation (reference-point = 27)
-            v = VIDEO.All_Normalized_Landmarks[u.time] # Reference to the normalized landmarks at the current time
-            average_coordinates[0] += np.array(v[27]) / step
+            # Translation
+            for i in range(len(VIDEO.All_Normalized_Landmarks[u.time])):
+                average_coordinates[0][i] += np.array(VIDEO.All_Normalized_Landmarks[u.time][i]) / step
 
-            v = VIDEO.All_World_Landmarks[u.time]
-            average_coordinates[1] += np.array(v[27]) / step
+            for i in range(len(VIDEO.All_World_Landmarks[u.time])):
+                average_coordinates[1][i] += np.array(VIDEO.All_World_Landmarks[u.time][i]) / step
 
 
         stable_references[0][np.mean(np.array(average_references[0]))] = np.std(np.array(average_references[0]))

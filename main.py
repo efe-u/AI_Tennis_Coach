@@ -1,11 +1,11 @@
 from pose_extraction import *
 from syncronizer import *
 from process import *
-from time_syncronizer import *
+from time_sync import *
 
 FILES = [
     Video("alcaraz_serve", "media/alcaraz_serve-synced.mp4"),
-    Video("kid_serve", "media/kid_serve-synced.mp4")
+    Video("kid_serve", "media/test_4.mp4")
 ]
 
 if __name__ == '__main__':
@@ -22,6 +22,9 @@ if __name__ == '__main__':
     FILES[1].reference_length_candidates, FILES[1].position_candidates = pre_normalize(FILES[1], ref)
 
     # TODO: TIME SYNCRONIZER
+    frames1, frames2 = pre_sync(FILES, ref)
+    mean_error(frames1, frames2)
+
 
     set_average_length(FILES)
     ref = find_min(FILES)
