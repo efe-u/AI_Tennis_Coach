@@ -12,6 +12,7 @@ class Capture():
         self.detection_result = None
         self.NormalizedLandmarks = []
         self.Landmarks = []
+        self.segmentation_mask = []
 
     # Reference length is taken as the distance between the shoulders
 
@@ -38,9 +39,6 @@ class Capture():
                           self.video.reference_lengths[1][2] ** 2)]
 
     def normalize(self, ref):
-        if self.time == 1:
-            pass
-
         _ = [[], []]
 
         for mark in np.array(self.video.All_Normalized_Landmarks[self.time]): # All normalized landmarks in this frame
@@ -60,6 +58,9 @@ class Capture():
             _[1].append(mark)
 
         self.video.All_Normalized_Landmarks[self.time] = _[0]
+
+
+
 
 
     def get_normalized_PoseLandmarkerResult(self, ref) -> pose_landmarker.PoseLandmarkerResult:
@@ -82,5 +83,7 @@ class Capture():
                                                     visibility = self.detection_result.pose_world_landmarks[0][len(self.Landmarks)].visibility,
                                                     presence = self.detection_result.pose_world_landmarks[0][len(self.Landmarks)].presence))
 
-        pose_landmarker_result = pose_landmarker.PoseLandmarkerResult([self.NormalizedLandmarks], [self.Landmarks])
+        SegmentationMasks = self.detection_result.segmentation_masks
+
+        pose_landmarker_result = pose_landmarker.PoseLandmarkerResult([self.NormalizedLandmarks], [self.Landmarks], SegmentationMasks)
         return pose_landmarker_result
