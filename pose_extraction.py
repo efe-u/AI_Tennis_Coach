@@ -6,18 +6,45 @@ from moviepy.editor import *
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from tqdm import tqdm
-
-# This part is directly imported from mediapipe documentation and adjusted accordingly #
-
 from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import numpy as np
 
 
-def draw_landmarks_on_image(rgb_image, detection_result, color):
+def draw_landmarks_on_image(rgb_image, detection_result, color, factors):
     pose_landmarks_list = detection_result.pose_landmarks
     annotated_image = np.copy(rgb_image)
-    extraction_image = np.zeros(annotated_image.shape)
+    extraction_image = np.zeros((annotated_image.shape))
+
+    # Segmentation Mask Processing
+    # Normalization
+    segmentation_mask = detection_result.segmentation_masks[0].numpy_view()
+    segmentation_image = np.repeat(segmentation_mask[:, :, np.newaxis], 3, axis=2) * 255
+    u = segmentation_image.shape
+    segmentation_image = np.concatenate(
+        (segmentation_image, np.zeros((int((u[0] / factors[0] - u[0])), segmentation_image.shape[1], 3))), axis=0)
+    segmentation_image = np.concatenate(
+        (segmentation_image, np.zeros((segmentation_image.shape[0], int((u[1] / factors[0] - u[1])), 3))), axis=1)
+
+    segmentation_image = cv.resize(segmentation_image, u[:2], interpolation=cv.INTER_NEAREST)
+
+    # Translation
+    dx = -int(u[0] * factors[1][0])
+    if dx < 0:
+        segmentation_image = np.delete(segmentation_image, slice(0, abs(dx)), 1)
+        segmentation_image = np.concatenate((segmentation_image, np.zeros((segmentation_image.shape[0], abs(dx), 3))), axis=1)
+    else:
+        segmentation_image = np.delete(segmentation_image, slice(u[1] - dx, u[1]), 1)
+        segmentation_image = np.concatenate((np.zeros((segmentation_image.shape[0], abs(dx), 3)), segmentation_image), axis=1)
+
+    dy = int(u[1] * factors[1][1])
+    if dy > 0:
+        segmentation_image = np.delete(segmentation_image, slice(0, abs(dy)), 0)
+        segmentation_image = np.concatenate((segmentation_image, np.zeros((abs(dy), segmentation_image.shape[1], 3))), axis=0)
+    else:
+        segmentation_image = np.delete(segmentation_image, slice(segmentation_image.shape[0] + dy, segmentation_image.shape[0]), 0)
+        segmentation_image = np.concatenate((np.zeros((abs(dy), segmentation_image.shape[1], 3)), segmentation_image), axis=0)
+
 
     # Loop through the detected poses to visualize.
     for idx in range(len(pose_landmarks_list)):
@@ -45,13 +72,25 @@ def draw_landmarks_on_image(rgb_image, detection_result, color):
             pose_landmarks_proto,
             solutions.pose.POSE_CONNECTIONS,
             mp.solutions.drawing_utils.DrawingSpec(color, 3, 3))
-    return annotated_image, extraction_image
+
+        # Draw on segmentation
+        solutions.drawing_utils.draw_landmarks(
+            segmentation_image,
+            pose_landmarks_proto,
+            solutions.pose.POSE_CONNECTIONS,
+            mp.solutions.drawing_utils.DrawingSpec(color, 3, 3))
+
+    return annotated_image, extraction_image, segmentation_image
 
 
 def configure():
     base_options = python.BaseOptions(model_asset_path='pose_landmarker.task')
     options = python.vision.PoseLandmarkerOptions(
-        base_options=base_options)
+        base_options=base_options,
+        output_segmentation_masks=True,
+        min_pose_presence_confidence=0.5,
+        min_pose_detection_confidence=0.5,
+        min_tracking_confidence=0.5)
     detector = vision.PoseLandmarker.create_from_options(options)
     return detector
 
@@ -92,23 +131,24 @@ def pre_normalize(VIDEO, ref):
     return stable_references, stable_coordinates
 
 
-def video_annotate(detector, VIDEO, ref, color):
+def video_annotate(detector, VIDEO, ref, color, shape):
 
     VIDEO.set_normalization_factors(ref)
 
     for capture in tqdm(VIDEO.Captures):
         detection_result = capture.get_normalized_PoseLandmarkerResult(ref)
 
-        annotated_image, extraction_image = draw_landmarks_on_image(capture.frame, detection_result, color)
+        annotated_image, extraction_image, segmentation_image = draw_landmarks_on_image(capture.frame, detection_result, color, [VIDEO.normalization_factors[0], VIDEO.translation_factor[0]])
         annotated_image = cv.cvtColor(annotated_image, cv.COLOR_RGB2BGR)
 
-        cv.imwrite(f"images/{capture.time}.jpeg", cv.resize(annotated_image, (1280, 960), interpolation=cv.INTER_AREA))
-        cv.imwrite(f"extractions/{capture.time}.jpeg", cv.resize(extraction_image, (1280, 960), interpolation=cv.INTER_AREA))
+        cv.imwrite(f"images/{capture.time}.jpeg", cv.resize(annotated_image, shape, interpolation=cv.INTER_AREA))
+        cv.imwrite(f"extractions/{capture.time}.jpeg", cv.resize(extraction_image, shape, interpolation=cv.INTER_AREA))
+        cv.imwrite(f"segmentations/{capture.time}.jpeg", cv.resize(segmentation_image, shape, interpolation=cv.INTER_AREA))
 
 
 def video_make(VIDEO):
     # Prepare
-    for folder in ["images", "extractions"]:
+    for folder in ["images", "extractions", "segmentations"]:
         video_name = VIDEO.name + f'_{folder}.avi'
 
         annotations = []
@@ -129,34 +169,54 @@ def video_make(VIDEO):
         video.release()
 
 
-def video_convert(VIDEO):
-    for folder in ["images", "extractions"]:
+def video_convert(VIDEO, ref):
+    for folder in ["images", "extractions", "segmentations"]:
         video = VideoFileClip(VIDEO.name + f"_{folder}.avi")
 
         # Adjust video speed
-        video = video.set_fps(video.fps * 30)
-        video = video.fx(vfx.speedx, 30)
+        video = video.set_fps(len(VIDEO.Captures)/10)
+        video = video.fx(vfx.speedx, (len(VIDEO.Captures)/len(ref.Captures)) * len(ref.Captures) * 0.1)
 
         # Save video
         video.write_videofile(f"results/{VIDEO.name}({folder}).mp4")
         os.remove(VIDEO.name + f"_{folder}.avi")
 
-
-def blend(VIDEOS):
+1
+def blend(VIDEOS, ref):
     clip1 = VideoFileClip("results/" + VIDEOS[0].name + "(extractions).mp4")
     clip2 = VideoFileClip("results/" + VIDEOS[1].name + "(extractions).mp4")
+    clip3 = VideoFileClip("results/" + VIDEOS[0].name + "(images).mp4")
+    clip4 = VideoFileClip("results/" + VIDEOS[1].name + "(images).mp4")
+    clip5 = VideoFileClip("results/" + VIDEOS[0].name + "(segmentations).mp4")
+    clip6 = VideoFileClip("results/" + VIDEOS[1].name + "(segmentations).mp4")
+
 
     final_clip = clips_array([[clip1, clip2]])
-    final_clip.write_videofile("results/blend1.mp4")
+    final_clip.write_videofile("results/blend1.1.mp4")
+
+    final_clip = clips_array([[clip5, clip6]])
+    final_clip.write_videofile("results/blend1.2.mp4")
 
     clip2 = clip2.set_opacity(0.5)
 
     final_clip = CompositeVideoClip([clip1, clip2])
     final_clip.write_videofile("results/blend2.mp4")
 
+    if ref is VIDEOS[1]:
+        clip5 = clip5.set_opacity(0.5)
+
+        final_clip = CompositeVideoClip([clip4, clip5])
+        final_clip.write_videofile("results/blend3.1.mp4")
+
+    if ref is VIDEOS[0]:
+        clip6 = clip6.set_opacity(0.5)
+
+        final_clip = CompositeVideoClip([clip3, clip6])
+        final_clip.write_videofile("results/blend3.2.mp4")
+
 
 # Cleans up folders
 def clean():
-    for folder in ["images", "extractions"]:
+    for folder in ["images", "extractions", "segmentations"]:
         for img in os.listdir(folder):
             os.remove(folder + "/" + img)

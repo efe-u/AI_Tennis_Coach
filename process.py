@@ -21,7 +21,7 @@ class Video:
         self.translation_factor = []  # [0] -> Normalized translation factor, [1] -> World translation factor
         self.fps = 30
 
-    def deconstruct(self):
+    def deconstruct(self, shape):
         VIDEO_FILE = cv.VideoCapture(self.path)
         self.fps = int(VIDEO_FILE.get(cv.CAP_PROP_FPS) + 0.5)
 
@@ -33,6 +33,7 @@ class Video:
             ret, frame = VIDEO_FILE.read()
             if not ret:
                 break
+            cv.resize(frame, shape, interpolation=cv.INTER_NEAREST)
             self.Captures.append(Capture(time, np.array(frame), self))
             time += 1
 
@@ -68,28 +69,13 @@ class Video:
             self.translation_factor = [[0, 0, 0], [0, 0, 0]]
 
 def set_average_length(objects):
-    value_pairs = []
-
-    for i in range(10):
-        value_pair = []
-        for obj in objects:
-            value_pair.append(list(obj.reference_length_candidates[0].values())[i])
-        value_pairs.append(value_pair)
-
-    _ = 1
-    ind = 0
-    for pair in value_pairs:
-        if max(pair) < _:
-            _ = max(pair)
-            ind = value_pairs.index(pair)
-
     for obj in objects:
-        obj.reference_lengths = [list(obj.reference_length_candidates[0].keys())[ind],
-                                 list(obj.reference_length_candidates[1].keys())[ind]]
+        obj.reference_lengths = [max(list(obj.reference_length_candidates[0].keys())),
+                                 max(list(obj.reference_length_candidates[1].keys()))]
 
         # reference-point = 27
-        obj.reference_positions = [obj.position_candidates[0][ind][27],
-                                   obj.position_candidates[1][ind][27]]
+        obj.reference_positions = [obj.position_candidates[0][0][27],
+                                   obj.position_candidates[1][0][27]]
 
 
 def find_min(objects):

@@ -3,14 +3,16 @@ from syncronizer import *
 from process import *
 from time_sync import *
 
-FILES = [
-    Video("alcaraz_serve", "media/alcaraz_serve-synced.mp4"),
-    Video("kid_serve", "media/test_4.mp4")
-]
-
 if __name__ == '__main__':
-    FILES[0].deconstruct()
-    FILES[1].deconstruct()
+    FILES = [
+        Video("1", "media/djokovic_forehand-synced.mp4"),
+        Video("2", "media/ksenia_forehand.mp4")
+    ]
+
+    shape = (850, 380)
+
+    FILES[0].deconstruct(shape)
+    FILES[1].deconstruct(shape)
 
     detector = configure()
 
@@ -23,22 +25,20 @@ if __name__ == '__main__':
 
     # TODO: TIME SYNCRONIZER
     frames1, frames2 = pre_sync(FILES, ref)
-    mean_error(frames1, frames2)
-
+    modify_results(FILES, ref, frames1, frames2)
 
     set_average_length(FILES)
-    ref = find_min(FILES)
 
-    video_annotate(detector, FILES[0], ref, (255,0,0))
+    video_annotate(detector, FILES[0], find_min(FILES), (255,0,0), shape)
     video_make(FILES[0])
-    video_convert(FILES[0])
+    video_convert(FILES[0], ref)
     clean()
 
-    video_annotate(detector, FILES[1], ref, (0,0,255))
+    video_annotate(detector, FILES[1], find_min(FILES), (0,0,255), shape)
     video_make(FILES[1])
-    video_convert(FILES[1])
+    video_convert(FILES[1], ref)
     clean()
 
-    blend(FILES)
+    blend(FILES, ref)
 
     print("So far, so good")

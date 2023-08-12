@@ -1,3 +1,4 @@
+import cv2 as cv
 from process import Video
 import numpy as np
 import math
@@ -40,10 +41,10 @@ def get_translation_point(objects):
 
 def pre_sync(FILES, shorter):
     # Initial positions
-    frames2 = shorter.position_candidates[0]
+    frames2 = np.copy(shorter.position_candidates[0])
     for file in FILES:
         if file is not shorter:
-            frames1 = file.position_candidates[0]
+            frames1 = np.copy(file.position_candidates[0])
 
     # Normalization according to max characteristic length
     factor1 = set_factor(FILES[0])
@@ -69,12 +70,12 @@ def pre_sync(FILES, shorter):
     return frames1, frames2
 
 def mean_error(frames1, frames2):
+    # Adjusted weights for movements
+    serve = [10, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 5, 10, 8, 15, 10, 15, 1, 1, 1, 1, 0, 0, 5, 10, 2, 15, 10, 15, 10, 10, 0, 10]
+    forehand = [10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 15, 10, 20, 5, 15, 1, 1, 1, 1, 0, 0, 5, 15, 5, 5, 3, 5, 0, 5, 0, 0]
+
     # Set weights
-    weights = np.array([0]*33)
-    for ind in [15,16,27,28]:
-        weights[ind] = 2
-    for ind in [13,14,25,26]:
-        weights[ind] = 1
+    weights = forehand
 
     # frame1 to frame2 comparison
     errors = np.zeros((2, len(frames2), len(frames2[0])), dtype=list)
@@ -104,8 +105,45 @@ def mean_error(frames1, frames2):
         s2.append(np.mean(errors[0][i]))
         f2.append(np.mean(errors[1][i]))
 
-    start = max([s1.index(min(s1)), s2.index(min(s2))])
-    finish = min([f1.index(min(f1)), f2.index(min(f2))])
+    s1 = s1.index(min(s1))
+    s2 = s2.index(min(s2))
+    f1 = f1.index(min(f1))
+    f2 = f2.index(min(f2))
+
+    return s1,s2,f1,f2
+
+def modify_results(FILES, ref, frames1, frames2):
+    s1, s2, f1, f2 = mean_error(frames1, frames2)
+
+    step = len(ref.Captures)*0.1
+
+    for file in FILES:
+        if file is not ref:
+            file.reference_length_candidates[0] = dict(zip(list(file.reference_length_candidates[0].keys())[s2:(f2+1)],
+                                                            list(file.reference_length_candidates[0].values())[s2:(f2+1)]))
+            file.reference_length_candidates[1] = dict(zip(list(file.reference_length_candidates[1].keys())[s2:(f2+1)],
+                                                           list(file.reference_length_candidates[1].values())[s2:(f2+1)]))
+            file.position_candidates[0] = file.position_candidates[0][s2:(f2+1)]
+            file.position_candidates[1] = file.position_candidates[1][s2:(f2 + 1)]
+
+            file.All_Normalized_Landmarks = file.All_Normalized_Landmarks[int(s2*len(ref.Captures)/10):int((f2+1)*len(ref.Captures)/10)]
+            file.Captures = file.Captures[int(s2*step):int((f2+1)*step)]
+
+            for i in range(len(file.Captures)):
+                file.Captures[i].time = i
+
+        else:
+            file.reference_length_candidates[0] = dict(zip(list(file.reference_length_candidates[0].keys())[s1:(f1+1)],
+                                                           list(file.reference_length_candidates[0].values())[s1:(f1+1)]))
+            file.reference_length_candidates[1] = dict(zip(list(file.reference_length_candidates[1].keys())[s1:(f1+1)],
+                                                           list(file.reference_length_candidates[1].values())[s1:(f1+1)]))
+            file.position_candidates[0] = file.position_candidates[0][s1:(f1+1)]
+            file.position_candidates[1] = file.position_candidates[1][s1:(f1 + 1)]
+
+            file.All_Normalized_Landmarks = file.All_Normalized_Landmarks[int(s1*len(ref.Captures)/10):int((f1+1)*len(ref.Captures)/10)]
+            file.Captures = file.Captures[int(s1*step):int((f1+1)*step)]
+
+            for i in range(len(file.Captures)):
+                file.Captures[i].time = i
 
     print("So far, so good")
-
