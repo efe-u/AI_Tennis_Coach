@@ -3,13 +3,14 @@ from syncronizer import *
 from process import *
 from time_sync import *
 
+
 if __name__ == '__main__':
     FILES = [
-        Video("1", "media/djokovic_forehand-synced.mp4"),
-        Video("2", "media/ksenia_forehand.mp4")
+        Video("1", "media/mtest3.mp4"),
+        Video("2", "media/alcaraz_serve-synced.mp4")
     ]
 
-    shape = (850, 380)
+    shape = (1920,1080)
 
     FILES[0].deconstruct(shape)
     FILES[1].deconstruct(shape)
@@ -29,16 +30,16 @@ if __name__ == '__main__':
 
     set_average_length(FILES)
 
-    video_annotate(detector, FILES[0], find_min(FILES), (255,0,0), shape)
+    video_annotate(detector, FILES[0], find_min(FILES), solutions.drawing_utils.RED_COLOR, shape)
     video_make(FILES[0])
     video_convert(FILES[0], ref)
     clean()
 
-    video_annotate(detector, FILES[1], find_min(FILES), (0,0,255), shape)
+    video_annotate(detector, FILES[1], find_min(FILES), solutions.drawing_utils.BLUE_COLOR, shape)
     video_make(FILES[1])
     video_convert(FILES[1], ref)
     clean()
 
-    blend(FILES, ref)
+    blend(FILES, find_min(FILES))
 
     print("So far, so good")
