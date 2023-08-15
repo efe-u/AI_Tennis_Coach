@@ -7,12 +7,13 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from tqdm import tqdm
 from mediapipe import solutions
+import mediapipe.tasks.python.components.containers.landmark
 from mediapipe.framework.formats import landmark_pb2
 import numpy as np
 
 
-def draw_landmarks_on_image(rgb_image, detection_result, color, factors):
-    pose_landmarks_list = detection_result.pose_landmarks
+def draw_landmarks_on_image(rgb_image, detection_result, color, factors, capture):
+    landmarks = capture.NormalizedLandmarks
     annotated_image = np.copy(rgb_image)
     extraction_image = np.zeros((annotated_image.shape))
 
@@ -32,53 +33,69 @@ def draw_landmarks_on_image(rgb_image, detection_result, color, factors):
     dx = -int(u[0] * factors[1][0])
     if dx < 0:
         segmentation_image = np.delete(segmentation_image, slice(0, abs(dx)), 1)
-        segmentation_image = np.concatenate((segmentation_image, np.zeros((segmentation_image.shape[0], abs(dx), 3))), axis=1)
+        segmentation_image = np.concatenate((segmentation_image, np.zeros((u[1], abs(dx), 3))), axis=1)
     else:
-        segmentation_image = np.delete(segmentation_image, slice(u[1] - dx, u[1]), 1)
-        segmentation_image = np.concatenate((np.zeros((segmentation_image.shape[0], abs(dx), 3)), segmentation_image), axis=1)
+        segmentation_image = np.delete(segmentation_image, slice(u[0] - dx, u[0]+1), 1)
+        segmentation_image = np.concatenate((np.zeros((u[1], abs(dx), 3)), segmentation_image), axis=1)
 
     dy = int(u[1] * factors[1][1])
     if dy > 0:
         segmentation_image = np.delete(segmentation_image, slice(0, abs(dy)), 0)
-        segmentation_image = np.concatenate((segmentation_image, np.zeros((abs(dy), segmentation_image.shape[1], 3))), axis=0)
+        segmentation_image = np.concatenate((segmentation_image, np.zeros((abs(dy), u[0], 3))), axis=0)
     else:
-        segmentation_image = np.delete(segmentation_image, slice(segmentation_image.shape[0] + dy, segmentation_image.shape[0]), 0)
-        segmentation_image = np.concatenate((np.zeros((abs(dy), segmentation_image.shape[1], 3)), segmentation_image), axis=0)
+        segmentation_image = np.delete(segmentation_image, slice(u[1] + dy, u[1]+1), 0)
+        segmentation_image = np.concatenate((np.zeros((abs(dy), u[0], 3)), segmentation_image), axis=0)
 
 
     # Loop through the detected poses to visualize.
-    for idx in range(len(pose_landmarks_list)):
-        pose_landmarks = pose_landmarks_list[idx]
+    # Draw the pose landmarks.
+    trace = landmark_pb2.NormalizedLandmarkList()
+    trace.landmark.extend([
+        landmark_pb2.NormalizedLandmark(x=capture.video.Captures[t].NormalizedLandmarks[16].x, y=capture.video.Captures[t].NormalizedLandmarks[16].y, z=capture.video.Captures[t].NormalizedLandmarks[16].z) for t in range(capture.time)
+    ])
 
-        # Draw the pose landmarks.
-        pose_landmarks_proto = landmark_pb2.NormalizedLandmarkList()
+    pose_landmarks_image = landmark_pb2.NormalizedLandmarkList()
 
-        pose_landmarks_proto.landmark.extend([
-            landmark_pb2.NormalizedLandmark(x=landmark.x, y=landmark.y, z=landmark.z) for landmark in pose_landmarks
-        ])
+    pose_landmarks_image.landmark.extend([
+        landmark_pb2.NormalizedLandmark(x=mark[0], y=mark[1], z=mark[2]) for mark in capture.video.All_Normalized_Landmarks[capture.time]
+    ])
 
-        # arguments(image, landmark_positions, connect_landmarks, connection_style)
+    pose_landmarks_ext = landmark_pb2.NormalizedLandmarkList()
 
-        # Draw on the image
-        solutions.drawing_utils.draw_landmarks(
-            annotated_image,
-            pose_landmarks_proto,
-            solutions.pose.POSE_CONNECTIONS,
-            mp.solutions.drawing_utils.DrawingSpec(color, 3, 3))
+    pose_landmarks_ext.landmark.extend([
+        landmark_pb2.NormalizedLandmark(x=mark.x, y=mark.y, z=mark.z) for mark in landmarks
+    ])
 
-        # Draw on the extraction
-        solutions.drawing_utils.draw_landmarks(
-            extraction_image,
-            pose_landmarks_proto,
-            solutions.pose.POSE_CONNECTIONS,
-            mp.solutions.drawing_utils.DrawingSpec(color, 3, 3))
+    # arguments(image, landmark_positions, connect_landmarks, connection_style)
 
-        # Draw on segmentation
-        solutions.drawing_utils.draw_landmarks(
-            segmentation_image,
-            pose_landmarks_proto,
-            solutions.pose.POSE_CONNECTIONS,
-            mp.solutions.drawing_utils.DrawingSpec(color, 3, 3))
+    # Draw on the image
+    solutions.drawing_utils.draw_landmarks(
+        annotated_image,
+        pose_landmarks_image,
+        solutions.pose.POSE_CONNECTIONS,
+        mp.solutions.drawing_utils.DrawingSpec(color, 3, 3))
+
+    # Draw on the extraction
+    solutions.drawing_utils.draw_landmarks(
+        extraction_image,
+        pose_landmarks_ext,
+        solutions.pose.POSE_CONNECTIONS,
+        mp.solutions.drawing_utils.DrawingSpec(color, 3, 3))
+    solutions.drawing_utils.draw_landmarks(
+        image = extraction_image,
+        landmark_list = trace,
+        landmark_drawing_spec = mp.solutions.drawing_utils.DrawingSpec((0,255,0), 1, 1))
+
+    # Draw on segmentation
+    solutions.drawing_utils.draw_landmarks(
+        segmentation_image,
+        pose_landmarks_ext,
+        solutions.pose.POSE_CONNECTIONS,
+        mp.solutions.drawing_utils.DrawingSpec(color, 3, 3))
+    solutions.drawing_utils.draw_landmarks(
+        image = segmentation_image,
+        landmark_list = trace,
+        landmark_drawing_spec = mp.solutions.drawing_utils.DrawingSpec((0,255,0), 1, 1))
 
     return annotated_image, extraction_image, segmentation_image
 
@@ -138,7 +155,7 @@ def video_annotate(detector, VIDEO, ref, color, shape):
     for capture in tqdm(VIDEO.Captures):
         detection_result = capture.get_normalized_PoseLandmarkerResult(ref)
 
-        annotated_image, extraction_image, segmentation_image = draw_landmarks_on_image(capture.frame, detection_result, color, [VIDEO.normalization_factors[0], VIDEO.translation_factor[0]])
+        annotated_image, extraction_image, segmentation_image = draw_landmarks_on_image(capture.frame, detection_result, color, [VIDEO.normalization_factors[0], VIDEO.translation_factor[0]], capture)
         annotated_image = cv.cvtColor(annotated_image, cv.COLOR_RGB2BGR)
 
         cv.imwrite(f"images/{capture.time}.jpeg", cv.resize(annotated_image, shape, interpolation=cv.INTER_AREA))

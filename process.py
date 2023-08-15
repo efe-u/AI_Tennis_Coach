@@ -44,15 +44,29 @@ class Video:
             capture.detection_result = detector.detect(image)
 
             _ = []
-            for landmark in capture.detection_result.pose_landmarks[0]:
-                _.append([landmark.x, landmark.y, landmark.z])
-            self.All_Normalized_Landmarks.append(_)
+            try:
+                for landmark in capture.detection_result.pose_landmarks[0]:
+                    _.append([landmark.x, landmark.y, landmark.z])
+                self.All_Normalized_Landmarks.append(_)
 
-            _ = []
-            for landmark in capture.detection_result.pose_world_landmarks[0]:
-                _.append([landmark.x, landmark.y, landmark.z])
-            self.All_World_Landmarks.append(_)
-            counter += 1
+                _ = []
+                for landmark in capture.detection_result.pose_world_landmarks[0]:
+                    _.append([landmark.x, landmark.y, landmark.z])
+                self.All_World_Landmarks.append(_)
+                counter += 1
+
+            except:
+                self.Captures[counter].detection_result = self.Captures[counter - 1].detection_result
+                self.All_Normalized_Landmarks.append(self.All_Normalized_Landmarks[counter - 1])
+                self.All_World_Landmarks.append(self.All_World_Landmarks[counter - 1])
+                print(f"At {counter} the model had to approximate")
+                counter += 1
+
+            if len(self.All_Normalized_Landmarks) != counter:
+                print(f"At {counter} normalized landmark is missing")
+
+            if len(self.All_World_Landmarks) != counter:
+                print(f"At {counter} world landmark is missing")
 
     def set_normalization_factors(self, ref):
         if self is not ref:

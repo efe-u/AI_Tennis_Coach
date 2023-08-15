@@ -57,7 +57,7 @@ class Capture():
 
             _[1].append(mark)
 
-        self.video.All_Normalized_Landmarks[self.time] = _[0]
+        self.NormalizedLandmarks = _[0]
 
 
 
@@ -66,14 +66,17 @@ class Capture():
     def get_normalized_PoseLandmarkerResult(self, ref) -> pose_landmarker.PoseLandmarkerResult:
         self.normalize(ref)
 
-        self.NormalizedLandmarks = []
+        _ = []
 
-        for mark in self.video.All_Normalized_Landmarks[self.time]:
-            self.NormalizedLandmarks.append(landmark.NormalizedLandmark(x = mark[0],
-                                                                        y = mark[1],
-                                                                        z = mark[2],
-                                                                        visibility = self.detection_result.pose_landmarks[0][len(self.NormalizedLandmarks)].visibility,
-                                                                        presence = self.detection_result.pose_landmarks[0][len(self.NormalizedLandmarks)].presence))
+        for mark in self.NormalizedLandmarks:
+            _.append(landmark.NormalizedLandmark(x = mark[0],
+                                                 y = mark[1],
+                                                 z = mark[2],
+                                                 visibility = self.detection_result.pose_landmarks[0][len(_)].visibility,
+                                                 presence = self.detection_result.pose_landmarks[0][len(_)].presence))
+
+        self.NormalizedLandmarks = _
+
         self.Landmarks = []
 
         for mark in self.video.All_World_Landmarks[self.time]:
