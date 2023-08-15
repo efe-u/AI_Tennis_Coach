@@ -3,6 +3,7 @@ import cv2 as cv
 import mediapipe as mp
 import os
 from moviepy.editor import *
+from error_calculator import calculate_error, visualize
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from tqdm import tqdm
@@ -12,7 +13,7 @@ from mediapipe.framework.formats import landmark_pb2
 import numpy as np
 
 
-def draw_landmarks_on_image(rgb_image, detection_result, color, factors, capture):
+def draw_landmarks_on_image(rgb_image, detection_result, color, factors, capture, VIDEO):
     landmarks = capture.NormalizedLandmarks
     annotated_image = np.copy(rgb_image)
     extraction_image = np.zeros((annotated_image.shape))
@@ -66,7 +67,22 @@ def draw_landmarks_on_image(rgb_image, detection_result, color, factors, capture
         landmark_pb2.NormalizedLandmark(x=mark.x, y=mark.y, z=mark.z) for mark in landmarks
     ])
 
-    # arguments(image, landmark_positions, connect_landmarks, connection_style)
+    try:
+        mean_error, to_mark = calculate_error(capture, VIDEO)
+    except:
+        mean_error = None
+        to_mark = False
+
+    if not not to_mark:
+        _ = []
+        for mark in to_mark:
+            _.append(landmarks[mark[0]])
+            _.append(landmarks[mark[1]])
+
+        corrections = landmark_pb2.NormalizedLandmarkList()
+        corrections.landmark.extend([
+            landmark_pb2.NormalizedLandmark(x=mark.x, y=mark.y, z=mark.z) for mark in _
+        ])
 
     # Draw on the image
     solutions.drawing_utils.draw_landmarks(
@@ -97,6 +113,28 @@ def draw_landmarks_on_image(rgb_image, detection_result, color, factors, capture
         landmark_list = trace,
         landmark_drawing_spec = mp.solutions.drawing_utils.DrawingSpec((0,255,0), 1, 1))
 
+    if not not to_mark:
+        for mark in to_mark:
+            x = to_mark[mark]
+            solutions.drawing_utils.draw_landmarks(
+                image=extraction_image,
+                landmark_list=pose_landmarks_ext,
+                connections=[mark],
+                connection_drawing_spec=(mp.solutions.drawing_utils.DrawingSpec((0, 255-x, x), 2, 2)),
+                landmark_drawing_spec=None)
+            solutions.drawing_utils.draw_landmarks(
+                image=segmentation_image,
+                landmark_list=pose_landmarks_ext,
+                connections=[mark],
+                connection_drawing_spec=(mp.solutions.drawing_utils.DrawingSpec((0, 255-x, x), 2, 2)),
+                landmark_drawing_spec=None)
+
+        VIDEO.mean_errors.append(mean_error)
+        extraction_image, segmentation_image = visualize(capture, VIDEO.mean_errors, extraction_image, segmentation_image)
+    else:
+        extraction_image = np.concatenate((extraction_image, np.zeros((int(extraction_image.shape[0] / 5), extraction_image.shape[1], 3))), axis=0)
+        segmentation_image = np.concatenate((segmentation_image, np.zeros((int(segmentation_image.shape[0] / 5), segmentation_image.shape[1], 3))), axis=0)
+
     return annotated_image, extraction_image, segmentation_image
 
 
@@ -119,7 +157,7 @@ def pre_normalize(VIDEO, ref):
     step = int(len(ref.Captures)*0.1)
 
     # for every approx. 10% period of the shorter video
-    for aggregate in tqdm(range(0, len(VIDEO.Captures) - (len(VIDEO.Captures) % step), step)):
+    for aggregate in range(0, len(VIDEO.Captures) - (len(VIDEO.Captures) % step), step):
         average_references = [[], []]
         average_coordinates = np.zeros((2,33,3))
 
@@ -155,7 +193,7 @@ def video_annotate(detector, VIDEO, ref, color, shape):
     for capture in tqdm(VIDEO.Captures):
         detection_result = capture.get_normalized_PoseLandmarkerResult(ref)
 
-        annotated_image, extraction_image, segmentation_image = draw_landmarks_on_image(capture.frame, detection_result, color, [VIDEO.normalization_factors[0], VIDEO.translation_factor[0]], capture)
+        annotated_image, extraction_image, segmentation_image = draw_landmarks_on_image(capture.frame, detection_result, color, [VIDEO.normalization_factors[0], VIDEO.translation_factor[0]], capture, ref)
         annotated_image = cv.cvtColor(annotated_image, cv.COLOR_RGB2BGR)
 
         cv.imwrite(f"images/{capture.time}.jpeg", cv.resize(annotated_image, shape, interpolation=cv.INTER_AREA))
@@ -219,13 +257,13 @@ def blend(VIDEOS, ref):
     final_clip = CompositeVideoClip([clip1, clip2])
     final_clip.write_videofile("results/blend2.mp4")
 
-    if ref is VIDEOS[1]:
+    if VIDEOS[1].reference is True:
         clip5 = clip5.set_opacity(0.5)
 
         final_clip = CompositeVideoClip([clip4, clip5])
         final_clip.write_videofile("results/blend3.1.mp4")
 
-    if ref is VIDEOS[0]:
+    if VIDEOS[0].reference is True:
         clip6 = clip6.set_opacity(0.5)
 
         final_clip = CompositeVideoClip([clip3, clip6])
