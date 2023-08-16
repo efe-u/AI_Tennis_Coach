@@ -77,12 +77,12 @@ class Video:
 
             self.normalization_factors = [normalized_normalization_factor, world_normalization_factor]
             # Set translation factors
-            # TODO
             self.translation_factor.append(self.reference_positions[0]*self.normalization_factors[0] - ref.reference_positions[0])
             self.translation_factor.append(self.reference_positions[1]*self.normalization_factors[0] - ref.reference_positions[1])
         else:
             self.normalization_factors = [1, 1]
             self.translation_factor = [[0, 0, 0], [0, 0, 0]]
+
 
 def set_average_length(objects):
     for obj in objects:

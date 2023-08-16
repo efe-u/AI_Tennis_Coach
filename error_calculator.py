@@ -4,7 +4,7 @@ from mediapipe import solutions
 import matplotlib.pyplot as plt
 
 def calculate_error(capture, VIDEO):
-    if capture.video is VIDEO:
+    if not VIDEO.reference and capture.video.reference:
         return
 
     factor = len(VIDEO.Captures)/len(capture.video.Captures)

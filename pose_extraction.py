@@ -142,7 +142,7 @@ def configure():
     base_options = python.BaseOptions(model_asset_path='pose_landmarker.task')
     options = python.vision.PoseLandmarkerOptions(
         base_options=base_options,
-        output_segmentation_masks=True,
+        output_segmentation_masks=False,
         min_pose_presence_confidence=0.5,
         min_pose_detection_confidence=0.5,
         min_tracking_confidence=0.5)
@@ -186,12 +186,12 @@ def pre_normalize(VIDEO, ref):
     return stable_references, stable_coordinates
 
 
-def video_annotate(detector, VIDEO, ref, color, shape):
+def video_annotate(VIDEO, ref, color, shape):
 
     VIDEO.set_normalization_factors(ref)
 
     for capture in tqdm(VIDEO.Captures):
-        detection_result = capture.get_normalized_PoseLandmarkerResult(ref)
+        detection_result = capture.get_normalized_PoseLandmarkerResult()
 
         annotated_image, extraction_image, segmentation_image = draw_landmarks_on_image(capture.frame, detection_result, color, [VIDEO.normalization_factors[0], VIDEO.translation_factor[0]], capture, ref)
         annotated_image = cv.cvtColor(annotated_image, cv.COLOR_RGB2BGR)

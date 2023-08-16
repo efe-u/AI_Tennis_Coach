@@ -38,7 +38,7 @@ class Capture():
                           self.video.reference_lengths[1][1] ** 2 +
                           self.video.reference_lengths[1][2] ** 2)]
 
-    def normalize(self, ref):
+    def normalize(self):
         _ = [[], []]
 
         for mark in np.array(self.video.All_Normalized_Landmarks[self.time]): # All normalized landmarks in this frame
@@ -63,8 +63,8 @@ class Capture():
 
 
 
-    def get_normalized_PoseLandmarkerResult(self, ref) -> pose_landmarker.PoseLandmarkerResult:
-        self.normalize(ref)
+    def get_normalized_PoseLandmarkerResult(self) -> pose_landmarker.PoseLandmarkerResult:
+        self.normalize()
 
         _ = []
 
