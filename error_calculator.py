@@ -60,6 +60,8 @@ def visualize(capture, mean_errors, extraction_image, segmentation_image):
         image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
         image_from_plot = image_from_plot.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
+        fig.clf()
+
         images[img] = np.concatenate((images[img], image_from_plot), axis=0)
 
     return images[0], images[1]
