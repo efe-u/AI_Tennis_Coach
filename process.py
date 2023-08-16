@@ -7,8 +7,9 @@ from tqdm import tqdm
 
 
 class Video:
-    def __init__(self, name, path):
+    def __init__(self, name, reference, path):
         self.name = name
+        self.reference = reference
         self.path = path
         self.Captures = []
         self.All_Normalized_Landmarks = []  # Format: [[[x,y,z],[x,y,z], ... , [x,y,z]], ...] # Dimensions: length x 33 x 3
@@ -19,6 +20,7 @@ class Video:
         self.reference_positions = []  # [0] -> Normalized reference position, [1] -> World reference position
         self.normalization_factors = []  # [0] -> Normalized normalization factor, [1] -> World normalization factor
         self.translation_factor = []  # [0] -> Normalized translation factor, [1] -> World translation factor
+        self.mean_errors = []
         self.fps = 30
 
     def deconstruct(self, shape):

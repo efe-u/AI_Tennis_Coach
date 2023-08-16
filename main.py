@@ -6,10 +6,11 @@ from time_sync import *
 
 if __name__ == '__main__':
     FILES = [
-        Video("1", "media/mtest3.mp4"),
-        Video("2", "media/alcaraz_serve-synced.mp4")
+        Video("1", False,"media/mtest3.mp4"),
+        Video("2", True,"media/alcaraz_serve-synced.mp4")
     ]
 
+    weight = serve
     shape = (1920,1080)
 
     FILES[0].deconstruct(shape)
@@ -24,13 +25,13 @@ if __name__ == '__main__':
     FILES[0].reference_length_candidates, FILES[0].position_candidates = pre_normalize(FILES[0], ref)
     FILES[1].reference_length_candidates, FILES[1].position_candidates = pre_normalize(FILES[1], ref)
 
-    # TODO: TIME SYNCRONIZER
+    #TIME SYNCRONIZER
     frames1, frames2 = pre_sync(FILES, ref)
-    modify_results(FILES, ref, frames1, frames2)
+    modify_results(FILES, ref, frames1, frames2, weight)
 
     set_average_length(FILES)
 
-    video_annotate(detector, FILES[0], find_min(FILES), solutions.drawing_utils.RED_COLOR, shape)
+    video_annotate(detector, FILES[0], find_min(FILES), solutions.drawing_utils.WHITE_COLOR, shape)
     video_make(FILES[0])
     video_convert(FILES[0], ref)
     clean()
