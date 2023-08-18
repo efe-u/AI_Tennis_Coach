@@ -6,8 +6,8 @@ from time_sync import *
 
 if __name__ == '__main__':
     FILES = [
-        Video("1", False,"media/mtest3.mp4"),
-        Video("2", True,"media/alcaraz_serve-synced.mp4")
+        Video("1", False,"media/ksenia_serve.mp4"),
+        Video("2", True,"media/mtest3.mp4")
     ]
 
     weight = serve
@@ -31,12 +31,12 @@ if __name__ == '__main__':
 
     set_average_length(FILES)
 
-    video_annotate(detector, FILES[0], find_min(FILES), solutions.drawing_utils.WHITE_COLOR, shape)
+    video_annotate(FILES[0], find_min(FILES), solutions.drawing_utils.WHITE_COLOR, shape)
     video_make(FILES[0])
     video_convert(FILES[0], ref)
     clean()
 
-    video_annotate(detector, FILES[1], find_min(FILES), solutions.drawing_utils.BLUE_COLOR, shape)
+    video_annotate(FILES[1], find_min(FILES), solutions.drawing_utils.BLUE_COLOR, shape)
     video_make(FILES[1])
     video_convert(FILES[1], ref)
     clean()
